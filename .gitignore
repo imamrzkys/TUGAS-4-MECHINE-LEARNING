@@ -11,6 +11,8 @@ __pycache__/
 # Large/local data
 *.csv
 *.ipynb
+!TA04.ipynb
+!TP04.ipynb
 *.h5
 !*lstm_btc_daily_model.h5
 *lstm_btc_daily_model_backup*.h5
