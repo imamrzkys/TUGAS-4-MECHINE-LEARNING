@@ -1,0 +1,29 @@
+# Python venv and caches
+.venv*/
+__pycache__/
+*.pyc
+
+# OS/editor
+.DS_Store
+*.code-workspace
+.vscode/
+
+# Large/local data
+*.csv
+*.ipynb
+*.h5
+!*lstm_btc_daily_model.h5
+*lstm_btc_daily_model_backup*.h5
+model_saved_tf/
+
+# Models
+# Keep SavedModel and scaler; exclude any checkpoints
+checkpoints/
+*.ckpt*
+
+# Logs
+logs/
+*.log
+
+# Railway/Nixpacks artifacts
+.cache/

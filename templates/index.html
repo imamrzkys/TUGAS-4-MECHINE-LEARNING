@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dasbor Prediksi Harga Bitcoin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      body { background:#0f172a; color:#e2e8f0; }
+      .navbar { background:#0b1220; border-bottom:1px solid #1f2937; }
+      .brand { color:#60a5fa; font-weight:800; letter-spacing:.4px; }
+      .hero h1 { color:#eaf2ff; letter-spacing:.2px; }
+      .hero p { color:#cbd5e1; }
+      .badge-ok { background:#10b981; }
+      .badge-bad { background:#ef4444; }
+      .card { background:#111827; border:1px solid #1f2937; box-shadow:0 8px 24px rgba(0,0,0,.25); }
+      .card-title { color:#93c5fd; }
+      .footer { border-top:1px solid #1f2937; color:#9ca3af; }
+      a, a:hover { color:#93c5fd; }
+      img.chart { border-radius:.75rem; border:1px solid #1f2937; background:#0b1220; }
+      .badge-wrap { gap:.5rem; }
+      .form-label{ color:#ffffff; }
+      .form-text{ color:#ffffff; }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg">
+      <div class="container py-2">
+        <span class="navbar-brand brand">Prediksi BTC LSTM</span>
+      </div>
+    </nav>
+
+    <main class="container py-4 py-md-5">
+      <div class="hero text-center mb-4">
+        <h1 class="display-6 mb-2">Dasbor Prediksi Harga Bitcoin</h1>
+        <p class="mb-3">Aplikasi web untuk memvisualisasikan riwayat harga dan menghasilkan prediksi harga penutupan Bitcoin harian menggunakan model LSTM.</p>
+        <div class="d-flex justify-content-center badge-wrap flex-wrap">
+          {% if model_loaded %}
+            <span class="badge badge-ok">Model OK</span>
+          {% else %}
+            <span class="badge badge-bad">Model Error</span>
+          {% endif %}
+          {% if scaler_loaded %}
+            <span class="badge badge-ok">Scaler OK</span>
+          {% else %}
+            <span class="badge badge-bad">Scaler Error</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <section class="mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h5 card-title mb-3">Prediksi Hari Berikutnya</h2>
+            {% if predict_error %}
+            <div class="alert alert-danger mb-3" role="alert">{{ predict_error }}</div>
+            {% endif %}
+            {% if predict_value is not none %}
+            <div class="alert alert-success mb-3" role="alert">Perkiraan harga penutupan berikutnya: <strong>{{ '%.2f'|format(predict_value) }}</strong></div>
+            {% endif %}
+            <form method="post" action="{{ url_for('predict') }}">
+              <div class="mb-3">
+                <label for="values" class="form-label">Masukkan 60 harga penutupan terakhir (pisahkan dengan koma atau baris baru)</label>
+                <textarea class="form-control" id="values" name="values" rows="5" placeholder="contoh: 62850, 63010, 62900, ..." {% if not model_loaded or not scaler_loaded %}disabled{% endif %}></textarea>
+                <div class="form-text">Gunakan minimal 60 angka. Model akan memprediksi 1 langkah ke depan.</div>
+              </div>
+              <div class="mb-3">
+                <div class="row g-2 align-items-end">
+                  <div class="col-12 col-md-7">
+                    <label for="csvFile" class="form-label">Ambil 60 harga penutupan terakhir dari file CSV</label>
+                    <input type="file" class="form-control" id="csvFile" accept=".csv">
+                  </div>
+                  <div class="col-12 col-md-auto">
+                    <button type="button" id="btnFillFromCsv" class="btn btn-outline-light" {% if not model_loaded or not scaler_loaded %}disabled{% endif %}>Isi dari CSV</button>
+                  </div>
+                  <div class="col-12">
+                    <small class="text-muted">CSV dengan kolom Close. Jika ada kolom waktu (Open time/Timestamp/Date), akan diambil penutupan terakhir per hari.</small>
+                  </div>
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary" {% if not model_loaded or not scaler_loaded %}disabled{% endif %}>Prediksi</button>
+              {% if not model_loaded or not scaler_loaded %}
+              <small class="text-muted ms-2">Form nonaktif karena model/scaler belum siap.</small>
+              {% endif %}
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {% if model_error or scaler_error %}
+      <div class="alert alert-danger" role="alert">
+        <div class="small mb-1">Asset load issues:</div>
+        <ul class="mb-0">
+          {% if model_error %}<li>Model: {{ model_error }}</li>{% endif %}
+          {% if scaler_error %}<li>Scaler: {{ scaler_error }}</li>{% endif %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <section class="mb-4">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h5 card-title mb-3">Grafik Riwayat</h2>
+            {% if charts and charts|length > 0 %}
+              <div class="row g-4">
+                {% for img in charts %}
+                  <div class="col-12 col-md-6">
+                    <figure class="mb-0">
+                      <img class="img-fluid chart" src="{{ url_for('static', filename=img) }}" alt="{{ img }}">
+                      <figcaption class="small text-muted mt-2">{{ img }}</figcaption>
+                    </figure>
+                  </div>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">Belum ada gambar di folder <code>static/</code>. Tambahkan file .png/.jpg untuk ditampilkan.</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer py-4">
+      <div class="container">
+        <div class="d-flex justify-content-between small">
+          <span>© {{ 2025 }} imamrizkysyahputra77</span>
+          <span>Flask • Bootstrap 5 • LSTM</span>
+        </div>
+      </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      (function(){
+        const fileInput = document.getElementById('csvFile');
+        const btn = document.getElementById('btnFillFromCsv');
+        const textarea = document.getElementById('values');
+        if(!fileInput || !btn || !textarea) return;
+        function parseCSV(text){
+          const lines = text.split(/\r?\n/).filter(l=>l.trim().length>0);
+          if(lines.length===0) return {headers:[], rows:[]};
+          const headers = lines[0].split(',').map(h=>h.trim());
+          const rows = lines.slice(1).map(l=>l.split(',').map(v=>v.trim()));
+          return {headers, rows};
+        }
+        function toDateOnly(s){
+          const d = new Date(s);
+          if(isNaN(d.getTime())) return null;
+          const y=d.getFullYear(), m=d.getMonth()+1, da=d.getDate();
+          return `${y}-${String(m).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+        }
+        btn.addEventListener('click', ()=>{
+          const file = fileInput.files && fileInput.files[0];
+          if(!file){ alert('Pilih file CSV terlebih dahulu.'); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            try{
+              const {headers, rows} = parseCSV(String(reader.result||''));
+              if(headers.length===0){ alert('CSV kosong atau tidak valid.'); return; }
+              const lcHeaders = headers.map(h=>h.toLowerCase());
+              const closeIdx = lcHeaders.indexOf('close');
+              if(closeIdx<0){ alert('Kolom Close tidak ditemukan di CSV.'); return; }
+              // Cari kolom waktu opsional
+              let timeIdx = -1;
+              const timeCandidates = ['open time','timestamp','date','datetime','time'];
+              for(const key of timeCandidates){
+                const idx = lcHeaders.indexOf(key);
+                if(idx>=0){ timeIdx = idx; break; }
+              }
+              let closes = [];
+              if(timeIdx>=0){
+                const byDate = new Map();
+                for(const r of rows){
+                  if(r.length<=closeIdx || r.length<=timeIdx) continue;
+                  const v = parseFloat(r[closeIdx]);
+                  if(!isFinite(v)) continue;
+                  const d = toDateOnly(r[timeIdx]);
+                  if(!d) continue;
+                  byDate.set(d, v); // last of the day
+                }
+                closes = Array.from(byDate.entries()).sort((a,b)=>a[0]<b[0]? -1:1).map(x=>x[1]);
+              } else {
+                for(const r of rows){
+                  if(r.length<=closeIdx) continue;
+                  const v = parseFloat(r[closeIdx]);
+                  if(isFinite(v)) closes.push(v);
+                }
+              }
+              if(closes.length<60){ alert('Data kurang dari 60 penutupan.'); return; }
+              const last60 = closes.slice(-60);
+              textarea.value = last60.join(', ');
+              textarea.focus();
+            }catch(e){
+              alert('Gagal memproses CSV: '+ e);
+            }
+          };
+          reader.onerror = ()=> alert('Gagal membaca file CSV.');
+          reader.readAsText(file);
+        });
+      })();
+    </script>
+  </body>
+  </html>
